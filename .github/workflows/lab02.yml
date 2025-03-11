@@ -8,3 +8,6 @@ jobs:
       - run: sudo apt-get install inkscape pandoc texlive-xetex
       - run: pip install nbconvert ipykernel
       - run: python -m nbconvert --to pdf pint_and_boiling_point.ipynb
+      - uses: actions/upload-artifact@v5
+        with:
+          path: pint_and_boiling_point.pdf
