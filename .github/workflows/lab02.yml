@@ -2,6 +2,6 @@ name: lab02
 on: push
 jobs:
   test:
-    runs-on: ububuntu-latest
+    runs-on: ubuntu-latest
     steps:
       -run: echo Hello
