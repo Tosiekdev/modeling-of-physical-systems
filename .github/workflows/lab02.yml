@@ -5,3 +5,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo Hello
+      - run: pip install nbconvert
+      - uses: actions/checkout@v5
+      - run: python -m nbconvert --to pdf pint_and_boiling_point.ipynb
