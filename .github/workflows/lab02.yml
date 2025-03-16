@@ -7,7 +7,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo apt-get install inkscape pandoc texlive-xetex
       - run: pip install nbconvert ipykernel pint matplotlib scipy open_atmos_jupyter_utils
-      - run: python -m nbconvert --to pdf --execute pint_and_boiling_point.ipynb
+      - run: python -m nbconvert --to pdf --execute lab02.ipynb
       - uses: actions/upload-artifact@v4
         with:
           path: lab02.pdf
