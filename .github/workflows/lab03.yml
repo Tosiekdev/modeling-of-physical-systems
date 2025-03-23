@@ -1,0 +1,53 @@
+name: Simple Workflow
+
+on:
+    push:
+        branches:
+            - master
+
+jobs:
+    convert_latest_notebook:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 2
+
+            - name: Install apt dependencies
+              run: xargs sudo apt install -y < apt-packages.txt
+
+            - name: Cache pip dependencies
+              uses: actions/setup-python@v5
+              with:
+                python-version: '3.12'
+                cache: 'pip'
+
+            - name: Install pip dependencies
+              run: pip3 install -r requirements.txt
+
+            - name: Find latest modified notebook
+              id: find_notebook
+              run: |
+                latest_ipynb=$(git diff --name-only HEAD~1 HEAD | grep '\.ipynb$' | head -n 1)
+                if [ -n "$latest_ipynb" ]; then
+                  echo "Latest modified notebook: $latest_ipynb"
+                  echo "notebook_path=$latest_ipynb" >> $GITHUB_ENV
+
+                  pdf_path="${latest_ipynb%.ipynb}.pdf"
+                  echo "pdf_path=$pdf_path" >> $GITHUB_ENV
+
+                  latest_lab=$(basename $(dirname $latest_ipynb))
+                  echo "Latest lab folder: $latest_lab"
+                  echo "latest_lab=$latest_lab" >> $GITHUB_ENV
+                fi
+
+            - name: Convert Notebook to PDF
+              if: env.notebook_path != ''
+              run: python3 -m nbconvert --to pdf --execute "$notebook_path"
+
+            - name: Upload PDF artifact
+              if: env.pdf_path != ''
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ env.latest_lab }}
+                  path: ${{ env.pdf_path }}
