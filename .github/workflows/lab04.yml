@@ -49,5 +49,5 @@ jobs:
               if: env.pdf_path != ''
               uses: actions/upload-artifact@v4
               with:
-                  name: ${{ env.latest_lab }}
+                  name: "assignment"
                   path: ${{ env.pdf_path }}
