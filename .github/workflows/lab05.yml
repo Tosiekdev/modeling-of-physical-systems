@@ -1,4 +1,4 @@
-name: lab05
+name: Lab 05
 on: push
 jobs:
   test:
