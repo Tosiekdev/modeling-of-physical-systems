@@ -1,0 +1,91 @@
+name: Lab06
+
+on:
+    push:
+        branches:
+            - master
+
+jobs:
+    convert_latest_notebook:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 2
+
+            - name: Install apt dependencies
+              run: xargs sudo apt install -y --fix-missing < apt-packages.txt
+
+            - name: Cache pip dependencies
+              uses: actions/setup-python@v5
+              with:
+                python-version: '3.12'
+                cache: 'pip'
+
+            - name: Install pip dependencies
+              run: pip3 install -r requirements.txt
+
+            - name: Find latest modified notebook
+              id: find_notebook
+              run: |
+                latest_ipynb=$(git diff --name-only HEAD~1 HEAD | grep '\.ipynb$' | head -n 1)
+                if [ -n "$latest_ipynb" ]; then
+                  echo "Latest modified notebook: $latest_ipynb"
+                  echo "notebook_path=$latest_ipynb" >> $GITHUB_ENV
+
+                  pdf_path="${latest_ipynb%.ipynb}.pdf"
+                  echo "pdf_path=$pdf_path" >> $GITHUB_ENV
+
+                  latest_lab=$(basename $(dirname $latest_ipynb))
+                  echo "Latest lab folder: $latest_lab"
+                  echo "latest_lab=$latest_lab" >> $GITHUB_ENV
+                fi
+
+            - name: Run nbQA
+              if: env.notebook_path != ''
+              run: |
+                echo "## 🧹 nbQA report for \`$notebook_path\`" > $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+
+                # Run and capture output
+                pylint_output=$(nbqa pylint $notebook_path || true)
+
+                # Extract score (e.g. 9.80/10)
+                score_line=$(echo "$pylint_output" | grep "Your code has been rated at")
+                score=$(echo "$score_line" | grep -o '[0-9.]\{1,\}/10' | cut -d '/' -f1)
+
+                # Determine badge color
+                badge_color="red"
+                if (( $(echo "$score == 10.0" | bc -l) )); then
+                  badge_color="brightgreen"
+                elif (( $(echo "$score >= 9.0" | bc -l) )); then
+                  badge_color="yellow"
+                fi
+
+                # Encode score for badge (e.g. 9.8/10 -> 9.8%2F10)
+                score_encoded=$(echo "$score/10" | sed 's/\//%2F/')
+
+                # If score < 10.0, show issues
+                if (( $(echo "$score < 10.0" | bc -l) )); then
+                  echo "### 🔎 Issues" >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`console" >> $GITHUB_STEP_SUMMARY
+                  echo "$pylint_output" | grep -vE "Your code has been rated at|^\*{5}|^[-]{5,}$" \
+                    | sed '/^[[:space:]]*$/d' >> $GITHUB_STEP_SUMMARY
+                  echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
+
+                # Show score badge
+                echo "### ✅ Lint Score" >> $GITHUB_STEP_SUMMARY
+                echo "![score](https://img.shields.io/badge/Lint%20Score-${score_encoded}-${badge_color})" >> $GITHUB_STEP_SUMMARY
+
+            - name: Convert Notebook to PDF
+              if: env.notebook_path != ''
+              run: python3 -m nbconvert --to pdf --execute "$notebook_path"
+
+            - name: Upload PDF artifact
+              if: env.pdf_path != ''
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ env.latest_lab }}
+                  path: ${{ env.pdf_path }}
